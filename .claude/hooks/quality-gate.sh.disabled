@@ -1,0 +1,108 @@
+#!/bin/bash
+# Smart quality gate - validates code quality AND git hygiene
+# Runs on Stop hook to validate work before allowing exit
+# BLOCKS exit if issues exist - forces cleanup
+
+SESSION_MARKER="/tmp/claude-modified-$PPID"
+
+# Check if modifications were made this session
+if [ ! -f "$SESSION_MARKER" ]; then
+  # No code changes - skip quality gates, allow exit
+  echo '{"decision": "approve"}'
+  exit 0
+fi
+
+# Only run in directories with package.json (Node.js projects)
+if [ ! -f "package.json" ]; then
+  rm -f "$SESSION_MARKER"  # Clean up
+  echo '{"decision": "approve"}'
+  exit 0
+fi
+
+# Check if we're in a git repository
+if ! git rev-parse --git-dir > /dev/null 2>&1; then
+  rm -f "$SESSION_MARKER"
+  echo '{"decision": "approve"}'
+  exit 0
+fi
+
+# Code was modified - run ALL quality checks
+FAILURES=""
+PASSED=true
+
+# ============================================
+# CODE QUALITY CHECKS
+# ============================================
+
+# Check 1: TypeScript compilation
+if [ -f "tsconfig.json" ]; then
+  TYPE_OUTPUT=$(npm run type-check 2>&1) || true
+  if echo "$TYPE_OUTPUT" | grep -qE "(error TS|Error:)"; then
+    ERROR_LINES=$(echo "$TYPE_OUTPUT" | grep -E "error TS" | head -10)
+    FAILURES="$FAILURES\n\n## TypeScript Errors\n\`\`\`\n$ERROR_LINES\n\`\`\`"
+    PASSED=false
+  fi
+fi
+
+# Check 2: Lint (if script exists)
+if grep -q '"lint"' package.json 2>/dev/null; then
+  LINT_OUTPUT=$(npm run lint 2>&1) || true
+  ERROR_COUNT=$(echo "$LINT_OUTPUT" | grep -cE "^\s*[0-9]+:[0-9]+\s+error" 2>/dev/null || echo "0")
+  if [ "$ERROR_COUNT" -gt 0 ]; then
+    ERROR_LINES=$(echo "$LINT_OUTPUT" | grep -E "^\s*[0-9]+:[0-9]+\s+error" | head -10)
+    FAILURES="$FAILURES\n\n## Lint Errors ($ERROR_COUNT found)\n\`\`\`\n$ERROR_LINES\n\`\`\`"
+    PASSED=false
+  fi
+fi
+
+# ============================================
+# GIT HYGIENE CHECKS
+# ============================================
+
+# Check 3: Should be on main branch when done
+CURRENT_BRANCH=$(git branch --show-current 2>/dev/null)
+if [ -n "$CURRENT_BRANCH" ] && [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "master" ]; then
+  FAILURES="$FAILURES\n\n## Still on Feature Branch\nYou are on \`$CURRENT_BRANCH\`, not \`main\`.\n\nRun \`/close-issue\` to complete your work properly, or manually:\n1. Commit and push changes\n2. Create and merge PR\n3. Switch to main: \`git checkout main && git pull\`"
+  PASSED=false
+fi
+
+# Check 4: Stale worktrees (more than just the main repo)
+WORKTREE_COUNT=$(git worktree list 2>/dev/null | wc -l | tr -d ' ')
+if [ "$WORKTREE_COUNT" -gt 1 ]; then
+  WORKTREE_LIST=$(git worktree list 2>/dev/null | grep -v "\[main\]" | grep -v "\[master\]" | head -5)
+  if [ -n "$WORKTREE_LIST" ]; then
+    FAILURES="$FAILURES\n\n## Stale Worktrees Found\nClean up these worktrees before exiting:\n\`\`\`\n$WORKTREE_LIST\n\`\`\`\n\nRemove with: \`git worktree remove <path> --force\`"
+    PASSED=false
+  fi
+fi
+
+# Check 5: Unmerged local branches (excluding current branch)
+UNMERGED=$(git branch --no-merged main 2>/dev/null | grep -v "^\*" | head -5)
+if [ -n "$UNMERGED" ]; then
+  BRANCH_COUNT=$(echo "$UNMERGED" | wc -l | tr -d ' ')
+  FAILURES="$FAILURES\n\n## Unmerged Branches ($BRANCH_COUNT found)\nThese branches have not been merged to main:\n\`\`\`\n$UNMERGED\n\`\`\`\n\nEither merge them via PR or delete with: \`git branch -D <branch>\`"
+  PASSED=false
+fi
+
+# Check 6: Stale remote branches (merged but not deleted)
+git fetch --prune origin 2>/dev/null || true
+STALE_REMOTES=$(git branch -r --merged main 2>/dev/null | grep -v "origin/main" | grep -v "origin/master" | grep -v "HEAD" | head -5)
+if [ -n "$STALE_REMOTES" ]; then
+  REMOTE_COUNT=$(echo "$STALE_REMOTES" | wc -l | tr -d ' ')
+  # Only warn, don't block for remote branches (they may be from other PRs)
+  # FAILURES="$FAILURES\n\n## Stale Remote Branches ($REMOTE_COUNT found)\n..."
+  # For now, just prune them silently - blocking would be too aggressive
+fi
+
+# ============================================
+# DECISION
+# ============================================
+
+if [ "$PASSED" = true ]; then
+  rm -f "$SESSION_MARKER"  # Clean up on success
+  echo '{"decision": "approve"}'
+else
+  # Block exit and provide failure details
+  ESCAPED_FAILURES=$(echo -e "$FAILURES" | sed 's/"/\\"/g' | tr '\n' ' ')
+  echo "{\"decision\": \"block\", \"reason\": \"Quality gates failed. Fix these issues before exiting:$ESCAPED_FAILURES\"}"
+fi

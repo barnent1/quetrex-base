@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "playwright": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "upstash": {
+      "type": "stdio",
+      "command": "/Users/barnent1/Projects/quetrex-base/scripts/upstash-mcp.sh",
+      "args": []
+    }
+  }
+}
