@@ -25,7 +25,7 @@ You manage the git workflow:
 - Creating worktrees and branches (REQUIRED)
 - Making commits with proper messages
 - Pushing to remote
-- Creating pull requests with Linear issue linking
+- Creating pull requests
 
 ## CRITICAL: Worktree Workflow (HARD RULE 6)
 
@@ -156,12 +156,7 @@ EOF
 git push -u origin $(git branch --show-current)
 ```
 
-### Step 6: Create PR with Linear Linking
-
-**Check for Linear issue context:**
-```bash
-cat .issue/context.json 2>/dev/null || echo "No context file"
-```
+### Step 6: Create PR
 
 **Create PR with quality verification:**
 ```bash
@@ -174,9 +169,6 @@ gh pr create --title "$ARGUMENTS" --body "$(cat <<'EOF'
 - [x] Lint: 0 errors, 0 warnings
 - [x] Tests: All passing
 - [x] Coverage: >80% on new code
-
-## Linear Issue
-Closes LINEAR_ISSUE_ID
 
 ## Test Plan
 - [x] Type check passes
@@ -217,7 +209,7 @@ After creating the PR, report:
 - Changes staged (3 files)
 - Commit created
 - Pushed to origin
-- PR created (linked to Linear issue)
+- PR created
 
 **Next Steps (Human Required):**
 1. Review PR in GitHub
@@ -270,9 +262,6 @@ Every commit message should mention:
 ```
 Branch created by Glen Barnhardt with Claude Code
 ```
-
-### ALWAYS Link Linear Issues
-If `.issue/context.json` contains a `linearIssueId`, include it in the PR body.
 
 ## Error Handling
 

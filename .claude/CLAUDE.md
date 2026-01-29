@@ -1,3 +1,46 @@
+# Quetrex Base
+
+## What This Is
+
+Quetrex Base is a foundation for building web applications with a defined
+technology stack, specialized AI agents, reusable skill patterns, and
+quality enforcement.
+
+## For Agents: Read This First
+
+**MANDATORY:** Read and follow `.claude/HARD-RULES.md` before doing any work.
+These 10 rules are non-negotiable and enforced by hooks and human gates.
+
+Key rules:
+- NO `any` types -- use proper TypeScript
+- ZERO warnings -- warnings are errors
+- Tests are immutable -- fix code, not tests
+- Worktrees always -- never work on main
+- Use Context7 for latest documentation
+- 80% test coverage on new code
+
+## How to Work
+
+### Starting an Issue
+`/create-issue <description>` creates a git worktree, feature branch,
+and `.issue/` context directory for the agent workflow.
+
+### Agent Workflow
+Architect -> Designer -> Database Architect -> Developer -> Test Writer -> QA -> Git Workflow
+
+Agents coordinate through `.issue/`:
+- `requirements.md` -- Product requirements
+- `architecture-decision.md` -- Technical plan
+- `design-system.md` -- Visual design specs
+- `todo.json` -- Task tracking
+- `context.json` -- Issue metadata
+
+### Completing an Issue
+`/close-issue <commit message>` runs quality checks, commits, pushes,
+creates a PR, and cleans up the worktree after human merge.
+
+---
+
 # Glen Barnhardt's Stack
 
 ## Frontend/Framework
@@ -29,24 +72,24 @@ Use `/` skills for stack-specific patterns:
 - `/tanstack-query` - Server state + Next.js integration
 - `/zustand` - Client state + TanStack Query integration
 - `/framer-motion` - Animations + ShadCN integration
-- `/design` - Design thinking, aesthetic patterns (NEW)
-- `/testing` - Vitest, RTL, Playwright patterns (NEW)
-- `/stack-integration` - Cross-technology integration (NEW)
-- `/api-patterns` - API design, Zod validation (NEW)
+- `/design` - Design thinking, aesthetic patterns
+- `/testing` - Vitest, RTL, Playwright patterns
+- `/stack-integration` - Cross-technology integration
+- `/api-patterns` - API design, Zod validation
 
 ## Agents Available
 - `architect` - Strategic analysis and planning (use at START of features)
-- `designer` - Visual design decisions (NEW - use for UI work)
+- `designer` - Visual design decisions (use for UI work)
 - `database-architect` - Database design and migrations
 - `developer` - Implementation specialist (follows design system)
-- `test-writer` - Test implementation (NEW - writes tests for new code)
+- `test-writer` - Test implementation (writes tests for new code)
 - `qa` - Quality assurance (includes coverage checking)
 - `git-workflow` - Git operations (no deploy commands)
 
 ## Agent Workflow
 ```
-Product Manager → Architect → Designer → Database Architect → Developer → Test Writer → QA → Git Workflow
-     ↓               ↓           ↓              ↓                ↓            ↓         ↓         ↓
+Product Manager -> Architect -> Designer -> Database Architect -> Developer -> Test Writer -> QA -> Git Workflow
+     |               |           |              |                |            |         |         |
   PRD/Reqs      Task Plan    Design Sys    Schema Design      Code        Tests     Verify   PR Created
 ```
 

@@ -8,7 +8,7 @@ allowed-tools: Bash, Read
 
 Completes the git workflow: quality check, commit, push, create PR. Then waits for human approval before cleanup.
 
-**CRITICAL:** This workflow does NOT auto-merge. Human must approve PR in GitHub. After human merges, this workflow cleans up the worktree and closes the tab.
+**CRITICAL:** This workflow does NOT auto-merge. Human must approve PR in GitHub. After human merges, this workflow cleans up the worktree.
 
 ## Usage
 
@@ -47,17 +47,7 @@ npm run lint 2>&1 | head -30
 
 If lint has errors, STOP and report. Do NOT proceed.
 
-### Step 3: Check for Linear Context
-
-Read the context file to check for Linear issue linking:
-
-```bash
-cat .issue/context.json 2>/dev/null || echo "No context file"
-```
-
-Extract `linearIssueId` and `linearUrl` if present.
-
-### Step 4: Stage and Commit
+### Step 3: Stage and Commit
 
 Execute (replace $ARGUMENTS with the commit message from user):
 
@@ -78,7 +68,7 @@ EOF
 )"
 ```
 
-### Step 5: Push to Remote
+### Step 4: Push to Remote
 
 Execute:
 
@@ -86,18 +76,14 @@ Execute:
 git push -u origin $(git branch --show-current)
 ```
 
-### Step 6: Create PR (NO AUTO-MERGE)
+### Step 5: Create PR (NO AUTO-MERGE)
 
-Create PR with Linear linking if available:
+Create the PR:
 
 ```bash
 gh pr create --title "$ARGUMENTS" --body "$(cat <<'EOF'
 ## Summary
 [Description based on commit message and changes]
-
-## Linear Issue
-[If linearIssueId exists: "Closes LINEAR_ISSUE_ID"]
-[If linearUrl exists: Link to LINEAR_URL]
 
 ## Test Plan
 - [x] Type check passes
@@ -118,7 +104,7 @@ EOF
 
 **CRITICAL:** Do NOT run `gh pr merge`. Human must approve in GitHub.
 
-### Step 7: Report and Wait for Human
+### Step 6: Report and Wait for Human
 
 Output this message:
 
@@ -127,7 +113,6 @@ Output this message:
 
 **PR:** [PR URL]
 **Branch:** [branch name]
-**Linear Issue:** [if applicable]
 
 **What happens next:**
 1. ⏳ Human reviews PR in GitHub
@@ -145,7 +130,7 @@ Or to automatically cleanup when PR is merged, keep this session open.
 Checking PR status every 30 seconds...
 ```
 
-### Step 8: Poll for PR Merge (Optional Auto-Cleanup)
+### Step 7: Poll for PR Merge (Optional Auto-Cleanup)
 
 If the user wants to wait for merge, poll:
 
@@ -164,7 +149,7 @@ while true; do
 done
 ```
 
-### Step 9: Cleanup Worktree (After Merge Only)
+### Step 8: Cleanup Worktree (After Merge Only)
 
 **ONLY execute after confirming PR is merged:**
 
@@ -172,7 +157,7 @@ done
 WORKTREE_PATH=$(pwd) && MAIN_REPO=$(git rev-parse --show-toplevel)/../$(basename $(git rev-parse --show-toplevel)) && cd "$MAIN_REPO" && git checkout main && git pull && git worktree remove "$WORKTREE_PATH" --force 2>/dev/null || true && echo "Cleanup complete"
 ```
 
-### Step 10: Report Success
+### Step 9: Report Success
 
 Output this message:
 
@@ -191,16 +176,6 @@ All steps completed:
 Deployment is handled by GitHub Actions:
 - Staging: Automatic after merge
 - Production: Requires human approval in GitHub
-
-Closing tab in 3 seconds...
-```
-
-### Step 11: Close Tab - ONLY AFTER SUCCESSFUL MERGE
-
-**Execute ONLY if PR was merged:**
-
-```bash
-sleep 3 && wezterm cli kill-pane --pane-id $WEZTERM_PANE
 ```
 
 ---
@@ -218,6 +193,4 @@ If any step fails:
 1. **Execute every bash block** - Do not just describe, actually run the commands
 2. **Stop on errors** - Any failure stops the workflow
 3. **NEVER auto-merge** - Human must approve PR in GitHub
-4. **Close tab ONLY after merge** - Step 11 only runs if PR is confirmed merged
-5. **Link Linear issues** - Include Linear ID in PR body if available
-6. **No skipping** - Every step is mandatory
+4. **No skipping** - Every step is mandatory
