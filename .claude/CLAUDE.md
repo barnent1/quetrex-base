@@ -22,18 +22,11 @@ Key rules:
 ## How to Work
 
 ### Starting an Issue
-`/create-issue <description>` creates a git worktree, feature branch,
-and `.issue/` context directory for the agent workflow.
+`/create-issue <description>` creates a git worktree and feature branch
+for isolated development.
 
 ### Agent Workflow
 Architect -> Designer -> Database Architect -> Developer -> Test Writer -> QA -> Git Workflow
-
-Agents coordinate through `.issue/`:
-- `requirements.md` -- Product requirements
-- `architecture-decision.md` -- Technical plan
-- `design-system.md` -- Visual design specs
-- `todo.json` -- Task tracking
-- `context.json` -- Issue metadata
 
 ### Completing an Issue
 `/close-issue <commit message>` runs quality checks, commits, pushes,
