@@ -81,6 +81,22 @@ ls .issue/requirements.md 2>/dev/null
 - **If requirements.md is missing**: Flag this - Product Manager should run first.
 - **If requirements seem incomplete**: Note missing items in your output.
 
+### Step 0.5: Check for Pre-Existing Errors
+
+Check if pre-existing type errors were detected by the `post-edit-check.sh` hook:
+
+```bash
+ls .issue/pre-existing-errors.json 2>/dev/null
+```
+
+**If the file exists:**
+1. Read the errors: `cat .issue/pre-existing-errors.json`
+2. Create `.issue/pre-existing-remediation.md` with a fix plan for each error
+3. Spawn a `developer` agent to fix the pre-existing errors before main work begins
+4. After remediation, continue with Step 1
+
+**If the file does not exist:** Continue normally.
+
 ### Step 1: Understand the Request
 - Read `.issue/requirements.md` if it exists
 - Identify core requirements vs nice-to-haves

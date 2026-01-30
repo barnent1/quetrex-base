@@ -1,13 +1,13 @@
 ---
 name: create-issue
-description: Start a new issue workflow with worktree and agent team
+description: Create a git worktree and feature branch for new work
 argument-hint: [issue description]
-allowed-tools: Bash, Read, Write
+allowed-tools: Bash, AskUserQuestion
 ---
 
-# Create Issue Workflow
+# Create Issue
 
-Creates a git worktree and sets up context for the agent team.
+Creates a git worktree and feature branch for isolated development.
 
 ## Usage
 
@@ -22,86 +22,36 @@ Creates a git worktree and sets up context for the agent team.
 
 If `$ARGUMENTS` is provided, use it as the issue description.
 
-If no arguments, ask: "What issue are you solving? Describe it briefly."
+If no arguments, ask: "What are you working on?"
 
 ### Step 2: Generate Names
 
 From the description, generate:
 - **Branch Name**: `issue/<descriptive-name>` (e.g., `issue/add-user-preferences`)
-- **PR Title**: Conventional commit format (e.g., `feat: add user preference settings`)
+- **Worktree Dir**: `../worktrees/<descriptive-name>` (e.g., `../worktrees/add-user-preferences`)
+
+Use lowercase kebab-case. Keep it short and descriptive.
 
 ### Step 3: Create Worktree
 
 ```bash
-# From the main repo directory
 cd $(git rev-parse --show-toplevel)
-
-# Create worktree with new branch
-git worktree add ../worktrees/ISSUE_NAME -b BRANCH_NAME
-
-# Create .issue directory for agent communication
-mkdir -p ../worktrees/ISSUE_NAME/.issue
+git worktree add ../worktrees/ISSUE_NAME -b issue/ISSUE_NAME
 ```
 
-### Step 4: Create Context File
-
-Create the context file:
+### Step 4: Change into the Worktree
 
 ```bash
-cat > ../worktrees/ISSUE_NAME/.issue/context.json << 'EOF'
-{
-  "branchName": "BRANCH_NAME",
-  "prTitle": "PR_TITLE",
-  "description": "ISSUE_DESCRIPTION",
-  "prNumber": null,
-  "status": "in-progress",
-  "createdAt": "ISO_TIMESTAMP",
-  "createdBy": "Glen Barnhardt with the help of Claude Code",
-  "instructions": "When complete, write to .issue/status.json with {\"status\": \"completed\", \"lastUpdate\": \"<timestamp>\", \"summary\": \"<what you did>\"}. Then run /close-issue to create PR."
-}
-EOF
+cd ../worktrees/ISSUE_NAME
 ```
-
-**Context Schema:**
-| Field | Type | Description |
-|-------|------|-------------|
-| branchName | string | Git branch name |
-| prTitle | string | Pull request title |
-| description | string | Issue description |
-| prNumber | number\|null | GitHub PR number after creation |
-| status | string | Current status: "in-progress", "pr-created", "merged", "closed" |
-| createdAt | string | ISO timestamp |
-| createdBy | string | Attribution |
-| instructions | string | Instructions for the agent |
 
 ### Step 5: Report Success
 
 ```
-## Issue Workflow Started
+## Issue Started
 
 **Worktree:** ../worktrees/ISSUE_NAME
-**Branch:** BRANCH_NAME
+**Branch:** issue/ISSUE_NAME
 
-Branch `BRANCH_NAME` created by Glen Barnhardt with Claude Code
-
-**Agent Workflow:**
-1. Architect agent analyzes codebase and creates plan
-2. Designer agent creates design system (for UI work)
-3. Database Architect agent handles schema changes (if needed)
-4. Developer agent implements changes
-5. Test Writer agent creates tests
-6. QA agent verifies quality
-7. Use `/close-issue` to create PR (human approval required)
-
-**Deployment Flow (after PR created):**
-1. Human reviews and merges PR
-2. Auto-deploy to staging
-3. Human approves production deploy in GitHub
+Branch `issue/ISSUE_NAME` created by Glen Barnhardt with Claude Code
 ```
-
-## Notes
-
-- All work happens on a feature branch, never on main
-- Use `/close-issue` in the new tab to complete the workflow
-- PR requires human approval - agents cannot auto-merge
-- Deployment requires human approval via GitHub Environments

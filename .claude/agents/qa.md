@@ -50,6 +50,26 @@ git diff --name-only HEAD~1 | grep -E "\.(test|spec)\.(ts|tsx)$"
 - If tests were modified, INVESTIGATE
 - If modified to pass broken code, **IMMEDIATE REJECT**
 
+### Step 2.5: Check for Pre-Existing Errors
+
+Check if the `post-edit-check.sh` hook detected pre-existing type errors:
+
+```bash
+ls .issue/pre-existing-errors.json 2>/dev/null
+```
+
+**If the file exists:**
+1. Re-verify: run `npm run type-check 2>&1` and compare against the logged errors
+2. If errors are **still present**:
+   - Spawn `architect` agent to create a remediation plan
+   - Spawn `developer` agent to fix the pre-existing errors
+   - Re-run quality checks after fixes complete
+3. If errors are **resolved** (fixed during development): delete the file and continue
+
+```bash
+rm .issue/pre-existing-errors.json 2>/dev/null
+```
+
 ### Step 3: Run Type Check (ZERO TOLERANCE)
 ```bash
 npm run type-check 2>&1
@@ -86,7 +106,7 @@ npm run test:coverage
 ### Step 7: Check for `any` Types (HARD RULE)
 Search for any types in changed files:
 ```bash
-git diff --name-only HEAD~1 | xargs grep -l "any" 2>/dev/null | grep -E "\.(ts|tsx)$"
+git diff --name-only HEAD~1 | grep -E "\.(ts|tsx)$" | xargs grep -nE ':\s*any\b|<any>|as any\b' 2>/dev/null
 ```
 - Flag any `any` types found
 - `catch (error: unknown)` is the correct pattern, not `any`

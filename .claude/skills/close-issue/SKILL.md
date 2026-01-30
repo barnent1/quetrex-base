@@ -6,9 +6,9 @@ allowed-tools: Bash, Read
 
 # Close Issue Workflow
 
-Completes the git workflow: quality check, commit, push, create PR. Then waits for human approval before cleanup.
+Completes the git workflow: quality check, commit, push, create PR. Waits for human review approval, then merges and cleans up the worktree.
 
-**CRITICAL:** This workflow does NOT auto-merge. Human must approve PR in GitHub. After human merges, this workflow cleans up the worktree.
+**Flow:** PR is created, agent polls for human review approval via branch protection, then merges with `--delete-branch` and cleans up the worktree.
 
 ## Usage
 
@@ -47,12 +47,46 @@ npm run lint 2>&1 | head -30
 
 If lint has errors, STOP and report. Do NOT proceed.
 
-### Step 3: Stage and Commit
+### Step 2.5: Run Tests
 
-Execute (replace $ARGUMENTS with the commit message from user):
+Execute:
 
 ```bash
-git add -A && git status
+npm run test:run 2>&1 | tail -20
+```
+
+If tests fail, STOP and report. Do NOT proceed.
+
+### Step 3: Stage and Commit
+
+First, review what will be staged:
+
+```bash
+git status
+```
+
+Stage tracked changes:
+
+```bash
+git add -u
+```
+
+Then review untracked files. Stage them explicitly by name only after verifying they belong in the commit (no `.env`, credentials, or temp files):
+
+```bash
+git status --short | grep '^??' | awk '{print $2}'
+```
+
+Stage appropriate untracked files individually:
+
+```bash
+git add <file1> <file2> ...
+```
+
+Verify the final staging:
+
+```bash
+git status
 ```
 
 Then commit:
@@ -102,9 +136,7 @@ EOF
 )"
 ```
 
-**CRITICAL:** Do NOT run `gh pr merge`. Human must approve in GitHub.
-
-### Step 6: Report and Wait for Human
+### Step 6: Report and Wait for Human Approval
 
 Output this message:
 
@@ -130,23 +162,36 @@ Or to automatically cleanup when PR is merged, keep this session open.
 Checking PR status every 30 seconds...
 ```
 
-### Step 7: Poll for PR Merge (Optional Auto-Cleanup)
+### Step 7: Poll for Approval and Merge
 
-If the user wants to wait for merge, poll:
+Poll for human approval with a bounded loop (max 60 iterations / ~30 min):
 
 ```bash
-while true; do
+for i in $(seq 1 60); do
+  REVIEW=$(gh pr view --json reviewDecision -q '.reviewDecision')
   STATE=$(gh pr view --json state -q '.state')
+
   if [ "$STATE" = "MERGED" ]; then
-    echo "PR has been merged!"
+    echo "PR already merged!"
     break
   elif [ "$STATE" = "CLOSED" ]; then
     echo "PR was closed without merging."
     exit 1
+  elif [ "$REVIEW" = "APPROVED" ]; then
+    echo "PR approved! Merging..."
+    gh pr merge --merge --delete-branch
+    break
   fi
-  echo "PR state: $STATE - waiting for merge..."
+
+  echo "[$i/60] Review: $REVIEW | State: $STATE - waiting for approval..."
   sleep 30
 done
+
+if [ "$i" -eq 60 ]; then
+  echo "Timed out waiting for approval after 30 minutes."
+  echo "Run /close-issue again after PR is approved."
+  exit 1
+fi
 ```
 
 ### Step 8: Cleanup Worktree (After Merge Only)
@@ -192,5 +237,5 @@ If any step fails:
 
 1. **Execute every bash block** - Do not just describe, actually run the commands
 2. **Stop on errors** - Any failure stops the workflow
-3. **NEVER auto-merge** - Human must approve PR in GitHub
+3. **Merge after approval** - Agent merges PR only after human review approval via branch protection
 4. **No skipping** - Every step is mandatory

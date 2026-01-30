@@ -224,13 +224,14 @@ These rules are enforced by hooks that CANNOT be bypassed:
 
 | Rule | Hook | Trigger |
 |------|------|---------|
-| No config changes | config-guard.sh | PermissionRequest (Edit/Write) |
-| No test changes | test-guard.sh | PermissionRequest (Edit/Write) |
+| No config changes | config-guard.sh | PreToolUse (Write\|Edit) |
+| No test changes | test-guard.sh | PreToolUse (Write\|Edit) |
 | No main commits | enforce-branch.sh | PreToolUse (Bash) |
 | No force-push | require-approval.sh | PreToolUse (Bash) |
-| TypeScript clean | typecheck.sh | PostToolUse (Edit/Write) |
-| Lint clean | lint.sh | PostToolUse (Edit/Write) |
-| Tests pass | quality-gate.sh | Stop hook |
+| TypeScript clean | post-edit-check.sh | PostToolUse (Write\|Edit) |
+| Lint clean | lint-check.sh | PostToolUse (Write\|Edit) |
+| Edit tracking | track-modifications.sh | PostToolUse (Write\|Edit) |
+| Tests + coverage | quality-gate.sh | Stop |
 
 ### Human Gates
 
@@ -241,6 +242,8 @@ These rules require human intervention:
 | PR approval | Branch protection | GitHub |
 | Production deploy | Environment protection | GitHub |
 | Rule override | Explicit approval | Chat |
+
+**Note:** Agents CAN merge PRs after human review approval via branch protection. The `/close-issue` skill polls for `reviewDecision = APPROVED`, then runs `gh pr merge --merge --delete-branch`.
 
 ---
 
