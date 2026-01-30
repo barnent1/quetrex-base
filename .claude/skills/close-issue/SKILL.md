@@ -1,14 +1,16 @@
 ---
 name: close-issue
-description: Complete git workflow - commit, PR, wait for human approval, cleanup
+description: Complete git workflow - commit, PR, merge, cleanup
 allowed-tools: Bash, Read
 ---
 
 # Close Issue Workflow
 
-Completes the git workflow: quality check, commit, push, create PR. Waits for human review approval, then merges and cleans up the worktree.
+Completes the git workflow with **guaranteed cleanup**: quality check, commit, push, create PR, merge, remove worktree, and verify clean git state. If any mutation step fails, cleanup still runs.
 
-**Flow:** PR is created, agent polls for human review approval via branch protection, then merges with `--delete-branch` and cleans up the worktree.
+**Two-Phase Design:**
+- **Phase 1 (Sections 1-3):** Read-only. Nothing is mutated. Failure = stop and report.
+- **Phase 2 (Sections 4-6):** Mutations. Once started, cleanup is MANDATORY regardless of outcome.
 
 ## Usage
 
@@ -19,17 +21,49 @@ Completes the git workflow: quality check, commit, push, create PR. Waits for hu
 
 ## Instructions
 
-Execute ALL steps in order. Do NOT skip any step.
+Execute ALL sections in order. Do NOT skip any section.
 
-### Step 1: Pre-flight Checks
+---
 
-Execute this command:
+### Section 1: Capture Context
+
+Capture all context BEFORE any mutations. These values are used throughout the workflow.
 
 ```bash
-BRANCH=$(git branch --show-current) && if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then echo "ERROR: Cannot close issue from main branch" && exit 1; fi && echo "On branch: $BRANCH"
+BRANCH=$(git branch --show-current) && WORKTREE_PATH=$(pwd) && MAIN_REPO=$(git worktree list | head -1 | awk '{print $1}') && echo "BRANCH=$BRANCH" && echo "WORKTREE_PATH=$WORKTREE_PATH" && echo "MAIN_REPO=$MAIN_REPO"
 ```
 
-If on main, STOP. Otherwise, run type-check:
+**Guard:** If on main/master, STOP immediately:
+
+```bash
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then echo "ERROR: Cannot close issue from main branch" && exit 1; fi
+```
+
+Record these values mentally. They are needed in Sections 4 and 5.
+
+---
+
+### Section 2: Pre-Cleanup (stale state from previous runs)
+
+Clean up any stale state left by previous failed runs. This section is informational and never blocks the workflow.
+
+```bash
+git worktree prune 2>/dev/null; git remote prune origin 2>/dev/null; echo "Pre-cleanup complete"
+```
+
+Optionally report stale merged branches (informational only):
+
+```bash
+git branch --merged main 2>/dev/null | grep -v '^\*\|main\|master' || echo "No stale merged branches"
+```
+
+---
+
+### Section 3: Quality Gates (fail = STOP, nothing to clean)
+
+Run all quality checks. If ANY fail, STOP and report errors. No mutation has occurred, so no cleanup is needed.
+
+**Type-check:**
 
 ```bash
 npm run type-check
@@ -37,9 +71,7 @@ npm run type-check
 
 If type-check fails, STOP and report errors. Do NOT proceed.
 
-### Step 2: Run Final QA
-
-Execute:
+**Lint:**
 
 ```bash
 npm run lint 2>&1 | head -30
@@ -47,9 +79,7 @@ npm run lint 2>&1 | head -30
 
 If lint has errors, STOP and report. Do NOT proceed.
 
-### Step 2.5: Run Tests
-
-Execute:
+**Tests:**
 
 ```bash
 npm run test:run 2>&1 | tail -20
@@ -57,9 +87,21 @@ npm run test:run 2>&1 | tail -20
 
 If tests fail, STOP and report. Do NOT proceed.
 
-### Step 3: Stage and Commit
+---
 
-First, review what will be staged:
+### Section 4: Mutation Phase (fail = skip to Section 5)
+
+**CRITICAL AGENT INSTRUCTION:** From this point forward, if ANY step fails, **skip immediately to Section 5 (Mandatory Cleanup)**. Do NOT stop and report. Do NOT retry. Go directly to cleanup.
+
+Track progress mentally using these markers:
+- `COMMITTED` = false
+- `PUSHED` = false
+- `PR_CREATED` = false (and `PR_URL` = none)
+- `MERGED` = false
+
+#### 4a: Stage and Commit
+
+Review what will be staged:
 
 ```bash
 git status
@@ -71,7 +113,7 @@ Stage tracked changes:
 git add -u
 ```
 
-Then review untracked files. Stage them explicitly by name only after verifying they belong in the commit (no `.env`, credentials, or temp files):
+Review untracked files. Stage them explicitly by name only after verifying they belong in the commit (no `.env`, credentials, or temp files):
 
 ```bash
 git status --short | grep '^??' | awk '{print $2}'
@@ -89,7 +131,7 @@ Verify the final staging:
 git status
 ```
 
-Then commit:
+Commit:
 
 ```bash
 git commit -m "$(cat <<'EOF'
@@ -102,17 +144,17 @@ EOF
 )"
 ```
 
-### Step 4: Push to Remote
+If commit succeeds, set `COMMITTED = true`. If it fails, **skip to Section 5**.
 
-Execute:
+#### 4b: Push to Remote
 
 ```bash
 git push -u origin $(git branch --show-current)
 ```
 
-### Step 5: Create PR (NO AUTO-MERGE)
+If push succeeds, set `PUSHED = true`. If it fails, **skip to Section 5**.
 
-Create the PR:
+#### 4c: Create PR
 
 ```bash
 gh pr create --title "$ARGUMENTS" --body "$(cat <<'EOF'
@@ -122,120 +164,162 @@ gh pr create --title "$ARGUMENTS" --body "$(cat <<'EOF'
 ## Test Plan
 - [x] Type check passes
 - [x] Lint passes
-- [ ] Manual testing completed
-- [ ] PR reviewed and approved
+- [x] Tests pass
 
 ---
-🤖 Generated with Claude Code
-
-**Deployment Flow:**
-1. Human approves and merges this PR
-2. Staging deploy happens automatically
-3. Human approves production deploy in GitHub UI
+Generated with Claude Code
 EOF
 )"
 ```
 
-### Step 6: Report and Wait for Human Approval
+If PR creation succeeds, set `PR_CREATED = true` and record `PR_URL`. If it fails, **skip to Section 5**.
 
-Output this message:
-
-```
-## PR Created - Awaiting Human Approval
-
-**PR:** [PR URL]
-**Branch:** [branch name]
-
-**What happens next:**
-1. ⏳ Human reviews PR in GitHub
-2. ⏳ Human approves and merges
-3. ✓ CI deploys to staging automatically
-4. ⏳ Human approves production deploy
-5. ✓ Production deployed
-
-**After human merges the PR, run this command to cleanup:**
-```
-/close-issue-cleanup
-```
-
-Or to automatically cleanup when PR is merged, keep this session open.
-Checking PR status every 30 seconds...
-```
-
-### Step 7: Poll for Approval and Merge
-
-Poll for human approval with a bounded loop (max 60 iterations / ~30 min):
+#### 4d: Merge PR
 
 ```bash
-for i in $(seq 1 60); do
-  REVIEW=$(gh pr view --json reviewDecision -q '.reviewDecision')
-  STATE=$(gh pr view --json state -q '.state')
-
-  if [ "$STATE" = "MERGED" ]; then
-    echo "PR already merged!"
-    break
-  elif [ "$STATE" = "CLOSED" ]; then
-    echo "PR was closed without merging."
-    exit 1
-  elif [ "$REVIEW" = "APPROVED" ]; then
-    echo "PR approved! Merging..."
-    gh pr merge --merge --delete-branch
-    break
-  fi
-
-  echo "[$i/60] Review: $REVIEW | State: $STATE - waiting for approval..."
-  sleep 30
-done
-
-if [ "$i" -eq 60 ]; then
-  echo "Timed out waiting for approval after 30 minutes."
-  echo "Run /close-issue again after PR is approved."
-  exit 1
-fi
+gh pr merge --merge --delete-branch
 ```
 
-### Step 8: Cleanup Worktree (After Merge Only)
+If merge succeeds, set `MERGED = true`. If it fails, **skip to Section 5**.
 
-**ONLY execute after confirming PR is merged:**
+---
+
+### Section 5: Mandatory Cleanup (ALWAYS runs after Section 4)
+
+**This section ALWAYS executes after Section 4 starts, regardless of success or failure.**
+
+Navigate to the main repository:
 
 ```bash
-WORKTREE_PATH=$(pwd) && MAIN_REPO=$(git rev-parse --show-toplevel)/../$(basename $(git rev-parse --show-toplevel)) && cd "$MAIN_REPO" && git checkout main && git pull && git worktree remove "$WORKTREE_PATH" --force 2>/dev/null || true && echo "Cleanup complete"
+cd "$MAIN_REPO"
 ```
 
-### Step 9: Report Success
+#### Remote Cleanup (conditional on progress)
 
-Output this message:
+Apply the FIRST matching condition:
 
+- **MERGED = true:** Verify remote branch is gone. If it still exists, delete it:
+  ```bash
+  git push origin --delete "$BRANCH" 2>/dev/null || true
+  ```
+
+- **PR_CREATED = true but MERGED = false:** Leave the PR open. Report the PR URL for manual merge. Do NOT delete the remote branch (it would orphan the PR).
+
+- **PUSHED = true but PR_CREATED = false:** Delete the orphaned remote branch:
+  ```bash
+  git push origin --delete "$BRANCH"
+  ```
+
+- **PUSHED = false:** No remote cleanup needed.
+
+#### Local Cleanup (always runs)
+
+```bash
+git checkout main && git pull --prune
 ```
-## Issue Closed Successfully ✓
 
-All steps completed:
-- ✓ Quality checks passed
-- ✓ Changes committed and pushed
-- ✓ PR created
-- ✓ PR merged by human
-- ✓ Branch deleted
-- ✓ Worktree removed
-- ✓ Back on main
+Remove the worktree:
 
-Deployment is handled by GitHub Actions:
-- Staging: Automatic after merge
-- Production: Requires human approval in GitHub
+```bash
+git worktree remove "$WORKTREE_PATH" --force 2>/dev/null || true
+```
+
+Prune worktree refs:
+
+```bash
+git worktree prune
+```
+
+Delete the local branch (force-delete is safe because code passed QA and exists on remote or in reflog):
+
+```bash
+git branch -D "$BRANCH" 2>/dev/null || true
+```
+
+#### Final Verification
+
+```bash
+echo "=== Worktrees ===" && git worktree list && echo "" && echo "=== Local Branches ===" && git branch && echo "" && echo "=== Remote Branches ===" && git branch -r && echo "" && echo "=== Git Status ===" && git status
+```
+
+Verify:
+- Only `main` worktree remains (plus any other active worktrees for other issues)
+- The feature branch is gone from local branches
+- The feature branch is gone from remote branches
+- Working tree is clean on main
+
+If stale remote refs remain:
+
+```bash
+git remote prune origin
 ```
 
 ---
 
-## Error Handling
+### Section 6: Close tmux Window
 
-If any step fails:
-1. Report the specific error with details
-2. Suggest how to fix it
-3. Do NOT proceed to the next step
-4. Do NOT close the tab if workflow didn't complete
+After cleanup is complete, close the tmux window for this issue:
+
+```bash
+tmux kill-window
+```
+
+This is the last command. The tab closes when the issue is fully closed.
+
+---
+
+### Section 7: Report Outcome
+
+Report one of the following based on what happened:
+
+#### Success (all steps completed)
+
+```
+## Issue Closed
+
+- Quality checks passed (type-check, lint, tests)
+- Changes committed and pushed
+- PR created and merged
+- Remote branch deleted
+- Worktree removed
+- Local branch cleaned up
+- On main, up to date
+```
+
+#### Partial Failure (mutation step failed, cleanup completed)
+
+```
+## Issue Partially Closed
+
+**Failed at:** [step that failed, e.g., "Push to remote"]
+**Error:** [error message]
+
+**What was cleaned up:**
+- [x] Worktree removed
+- [x] Local branch deleted
+- [x] Returned to main
+
+**What the user needs to do:**
+- [Specific action based on failure point]
+```
+
+Use the progress markers to determine the correct report:
+
+| Failed Step | User Action |
+|-------------|-------------|
+| Commit failed | Re-run `/close-issue` after fixing the commit issue |
+| Push failed | Check remote access, then re-run `/close-issue` |
+| PR creation failed | Push exists; manually create PR or re-run `/close-issue` from a new worktree |
+| Merge failed | PR is open at [PR_URL]; merge manually in GitHub |
+
+---
 
 ## Critical Rules
 
 1. **Execute every bash block** - Do not just describe, actually run the commands
-2. **Stop on errors** - Any failure stops the workflow
-3. **Merge after approval** - Agent merges PR only after human review approval via branch protection
-4. **No skipping** - Every step is mandatory
+2. **Phase 1 stops on error** - Quality gate failure = stop, no cleanup needed
+3. **Phase 2 always cleans up** - Once mutations start, cleanup is mandatory
+4. **Skip to Section 5 on mutation failure** - Never stop mid-mutation without cleaning up
+5. **Force-delete local branch** - Use `-D` not `-d` since merge may not have completed
+6. **Leave PR open if merge fails** - Deleting the remote branch would orphan the PR
+7. **Delete remote branch if push succeeded but PR failed** - Orphaned branches get cleaned up

@@ -29,8 +29,10 @@ for isolated development.
 Architect -> Designer -> Database Architect -> Developer -> Test Writer -> QA -> Git Workflow
 
 ### Completing an Issue
-`/close-issue <commit message>` runs quality checks, commits, pushes,
-creates a PR, and cleans up the worktree after human merge.
+`/close-issue <commit message>` runs quality checks (fail = stop), then
+commits, pushes, creates a PR, and merges. Cleanup (worktree removal,
+branch deletion, state verification) is **guaranteed** regardless of
+whether mutation steps succeed or fail.
 
 ---
 
