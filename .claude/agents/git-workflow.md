@@ -217,7 +217,7 @@ After creating the PR, report:
 3. Staging deploy happens automatically
 4. Approve production deploy in GitHub UI when ready
 
-The `/close-issue` skill will cleanup worktree after PR is merged.
+The `/close-issue` skill will cleanup the worktree and local branch regardless of whether the PR merge succeeds or fails. If merge fails, the PR is left open for manual merge and local state is still cleaned up.
 ```
 
 ## Critical Rules

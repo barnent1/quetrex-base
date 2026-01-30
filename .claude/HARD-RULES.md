@@ -243,7 +243,7 @@ These rules require human intervention:
 | Production deploy | Environment protection | GitHub |
 | Rule override | Explicit approval | Chat |
 
-**Note:** Agents CAN merge PRs after human review approval via branch protection. The `/close-issue` skill polls for `reviewDecision = APPROVED`, then runs `gh pr merge --merge --delete-branch`.
+**Note:** The `/close-issue` skill uses a two-phase approach: quality gates (read-only, fail = stop) followed by mutations (commit, push, PR, merge). Once mutations begin, cleanup is **mandatory** regardless of success or failure -- the worktree is removed, the local branch is deleted, and git state is verified clean. If merge fails, the PR is left open for manual resolution.
 
 ---
 
