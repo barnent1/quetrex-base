@@ -217,6 +217,64 @@ For each type of code, recommend appropriate tests:
 | SSE connections | Integration | Vitest + MSW |
 | User flows | E2E | Playwright |
 
+## Session Continuity Harness (Autonomous Pipeline)
+
+When invoked by the autonomous pipeline runner, follow this protocol:
+
+### On Start (MANDATORY)
+1. Run `pwd` to confirm you are in the correct worktree
+2. Read `.issue/progress.md` if it exists — understand what was accomplished in previous sessions
+3. Read `.issue/todo.json` if it exists — find incomplete work from previous sessions
+4. Read `.issue/stage-state.json` if it exists — understand pipeline context
+5. Read `docs/architecture/` for system understanding
+6. If `.issue/init.sh` exists, run it to ensure dev environment is ready
+
+### During Work
+- Work on the architect's deliverables as normal
+- If resuming a previous session, pick up where the last session left off
+- Update `.issue/todo.json` with the full feature decomposition
+- Set each feature's `passing` to `false` initially
+
+### On Complete
+1. Write/update `.issue/architecture-decision.md` with the full plan
+2. Write/update `.issue/todo.json` with testable features:
+   ```json
+   {
+     "features": [
+       {
+         "id": "feat-1",
+         "description": "Feature description",
+         "category": "backend|frontend|database|infra",
+         "passing": false,
+         "verification": "How to verify this feature works"
+       }
+     ]
+   }
+   ```
+3. Update `.issue/stage-state.json`:
+   ```json
+   {
+     "current_stage": "architecting",
+     "status": "complete",
+     "total_features": 8,
+     "completed_features": 0
+   }
+   ```
+4. Update `.issue/progress.md` with what was accomplished this session
+
+### If Context Is Running Low
+- Commit your work so far
+- Update `.issue/progress.md` with what was done and what remains
+- Update `.issue/stage-state.json` with `"status": "in_progress"`
+- The next session will continue from where you left off
+
+## Learning Protocol
+
+After completing your analysis:
+- If you discovered something non-obvious about the codebase, note it in `.issue/discoveries.md`
+- If architecture docs in `docs/architecture/` are outdated or missing, flag this in your output
+- The pipeline's learning stage will extract patterns from your discoveries after issue completion
+
 ## Critical Rules
 
 1. **HARD RULES First**: Verify all plans comply with HARD-RULES.md

@@ -101,13 +101,96 @@ Create `.claude/CLAUDE.md` that overrides the global:
 If the project IS the quetrex stack: skip this step. The global
 CLAUDE.md already applies.
 
-### Step 6: Report
+### Step 6: Generate init.sh Bootstrap Script
+
+Create `.issue/init.sh` for the autonomous pipeline's session bootstrap:
+
+**For Next.js / TypeScript:**
+```bash
+#!/bin/bash
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_DIR"
+
+echo "=== Bootstrapping project ==="
+
+# Install dependencies if needed
+if [ ! -d "node_modules" ]; then
+  echo "Installing dependencies..."
+  npm install
+fi
+
+# Start dev server if not running
+if ! pgrep -f "next dev" > /dev/null 2>&1; then
+  echo "Starting dev server..."
+  npm run dev &
+  timeout 60 bash -c 'until curl -sf http://localhost:3000 > /dev/null 2>&1; do sleep 2; done' || echo "Warning: dev server did not start in 60s"
+else
+  echo "Dev server already running"
+fi
+
+# Smoke test
+echo "Running smoke test..."
+npm run type-check 2>&1 || echo "Warning: type-check had issues"
+
+echo "=== Bootstrap complete ==="
+```
+
+**For Python:**
+```bash
+#!/bin/bash
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_DIR"
+
+echo "=== Bootstrapping project ==="
+
+# Create/activate virtual environment
+if [ ! -d ".venv" ]; then
+  echo "Creating virtual environment..."
+  python3 -m venv .venv
+fi
+source .venv/bin/activate
+
+# Install dependencies
+pip install -e ".[dev]" 2>/dev/null || pip install -r requirements.txt 2>/dev/null || echo "No deps file found"
+
+# Smoke test
+echo "Running smoke test..."
+python -m pytest --co -q 2>&1 || echo "Warning: test collection had issues"
+
+echo "=== Bootstrap complete ==="
+```
+
+**For Go:**
+```bash
+#!/bin/bash
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$PROJECT_DIR"
+
+echo "=== Bootstrapping project ==="
+
+go mod download
+echo "Running smoke test..."
+go vet ./... 2>&1 || echo "Warning: go vet had issues"
+
+echo "=== Bootstrap complete ==="
+```
+
+After writing the file:
+```bash
+chmod +x .issue/init.sh
+```
+
+### Step 7: Report
 
 ```
 ## Project Initialized
 
 **Stack:** [selected stack]
 **Config:** .claude/project.json
+**Bootstrap:** .issue/init.sh
 **Checks enabled:**
 - Type check: yes/no
 - Lint: yes/no
@@ -115,4 +198,8 @@ CLAUDE.md already applies.
 
 The quality gate hook will now enforce these checks when
 you exit a Claude session after modifying code.
+
+The bootstrap script (.issue/init.sh) will be used by the
+autonomous pipeline to initialize the dev environment at
+the start of each session.
 ```

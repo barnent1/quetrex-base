@@ -201,6 +201,56 @@ If issues are found, recommend spawning:
 
 Do NOT approve with issues. Send back for fixes.
 
+## Session Continuity Harness (Autonomous Pipeline)
+
+When invoked by the autonomous pipeline runner, follow this protocol:
+
+### On Start (MANDATORY)
+1. Run `pwd` to confirm you are in the correct worktree
+2. Read `.issue/progress.md` — understand what was accomplished
+3. Read `.issue/todo.json` — verify all features are marked `passing: true`
+4. Read `.issue/stage-state.json` — check attempt count (max 5 retries)
+
+### On APPROVED
+1. Update `.issue/stage-state.json`:
+   ```json
+   {
+     "current_stage": "qa_gate",
+     "status": "complete",
+     "attempt": 1
+   }
+   ```
+2. Update `.issue/progress.md` with QA approval
+
+### On REJECTED
+1. Update `.issue/stage-state.json`:
+   ```json
+   {
+     "current_stage": "qa_gate",
+     "status": "rejected",
+     "attempt": 2,
+     "rejection_reasons": ["TypeScript warnings found", "Coverage below 80%"]
+   }
+   ```
+2. Update `.issue/progress.md` with:
+   - What failed and why
+   - Specific files and line numbers
+   - What needs to be fixed
+3. The pipeline runner will loop back to the implementing stage for fixes
+4. After 5 consecutive rejections, the runner escalates to the owner via SMS
+
+### QA Retry Awareness
+- Read `stage-state.json` attempt count before starting
+- If this is attempt 3+, be extra detailed in rejection reasons
+- If this is attempt 5 and still failing, include a root cause analysis in your report
+
+## Learning Protocol
+
+After completing QA:
+- If you found recurring quality issues, note patterns in `.issue/discoveries.md`
+- Document the types of failures — the learning engine uses this to improve agent instructions
+- If the same failure type keeps occurring across issues, flag it for promotion to HARD-RULES.md
+
 ## Example: Approved
 
 ```

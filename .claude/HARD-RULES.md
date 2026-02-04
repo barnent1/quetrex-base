@@ -168,6 +168,46 @@ cd ../worktrees/issue-<name>
 
 ---
 
+## Architecture & Pipeline Rules
+
+### ARCHITECTURE DOCS MUST BE UPDATED
+
+**Rule:** When modifying system structure, agents MUST update `docs/architecture/`.
+
+**Triggers:**
+- Adding new routes or pages
+- Adding new database tables or modifying schema
+- Adding new state stores or changing data flow
+- Modifying API layer structure
+- Changing authentication or caching strategy
+
+**Requirements:**
+- UPDATE existing Mermaid diagrams (replace outdated sections)
+- NEVER just append — if a diagram is inaccurate, fix it
+- Do NOT create new diagrams for the same topic — update the existing one
+- The git-workflow agent verifies this before creating PRs
+
+**Exempt:** Bug fixes, styling changes, and modifications that don't alter
+system structure do not require architecture doc updates.
+
+### PROGRESS FILES ARE SACRED IN PIPELINE
+
+**Rule:** During autonomous pipeline execution, `.issue/` progress files
+must be kept accurate and up-to-date.
+
+**Required files:**
+- `.issue/progress.md` — Updated at the END of every CLI session
+- `.issue/todo.json` — Features marked `passing: true` ONLY after verification
+- `.issue/stage-state.json` — Reflects actual pipeline state
+
+**FORBIDDEN:**
+- Marking a feature `passing: true` without running its verification
+- Leaving `progress.md` stale after making changes
+- Setting `stage-state.json` status to `"complete"` when work remains
+- Skipping the session startup checklist (read progress files first)
+
+---
+
 ## Agent Rules
 
 ### 9. SPAWN SUB-AGENTS FOR COMPLEX WORK
@@ -269,16 +309,25 @@ Human: "Approved: test modification override for the 400/404 status code fix onl
 
 ## Summary
 
-These 10 rules form the foundation of our development practice:
+These rules form the foundation of our development practice:
 
+**Code Quality:**
 1. **NO CONFIG CHANGES** - Fix code, not configs
 2. **ZERO WARNINGS** - Warnings are errors
 3. **TESTS IMMUTABLE** - Code adapts to tests
 4. **CLEAN CODE FIRST** - No "fix later"
 5. **CURRENT DOCS** - Use Context7 for latest
+
+**Architecture & Pipeline:**
+- **ARCHITECTURE DOCS UPDATED** - Update `docs/architecture/` when modifying system structure
+- **PROGRESS FILES SACRED** - Keep `.issue/` progress files accurate during pipeline execution
+
+**Git:**
 6. **WORKTREES ALWAYS** - Feature branches in worktrees
 7. **100% CLEAN PRs** - Perfect or no PR
 8. **HUMAN DEPLOY** - No auto-deployment
+
+**Agents:**
 9. **SUB-AGENTS** - Parallelize when beneficial
 10. **SHARED WORKTREES** - Multiple agents, one worktree
 
@@ -286,4 +335,4 @@ These 10 rules form the foundation of our development practice:
 
 ---
 
-*Last updated: 2026-01-22 by Glen Barnhardt with Claude Code*
+*Last updated: 2026-02-02 by Glen Barnhardt with Claude Code*

@@ -254,6 +254,43 @@ box-shadow:
 [Any specific implementation guidance, gotchas, or priorities]
 ```
 
+## Session Continuity Harness (Autonomous Pipeline)
+
+When invoked by the autonomous pipeline runner, follow this protocol:
+
+### On Start (MANDATORY)
+1. Run `pwd` to confirm you are in the correct worktree
+2. Read `.issue/progress.md` — understand what was accomplished in previous sessions
+3. Read `.issue/todo.json` — understand the full feature scope
+4. Read `.issue/stage-state.json` — understand pipeline context
+5. Read `docs/architecture/` for system understanding
+
+### During Work
+- Create the design system as normal
+- If resuming a previous session, read any partial `.issue/design-system.md` and continue
+
+### On Complete
+1. Write/update `.issue/design-system.md` with full specifications
+2. Update `.issue/stage-state.json`:
+   ```json
+   {
+     "current_stage": "designing",
+     "status": "complete"
+   }
+   ```
+3. Update `.issue/progress.md` with what was accomplished
+
+### If Context Is Running Low
+- Save your progress to `.issue/design-system.md` (even if partial)
+- Update `.issue/progress.md` with what was done and what remains
+- Update `.issue/stage-state.json` with `"status": "in_progress"`
+
+## Learning Protocol
+
+After completing the design system:
+- If you discovered design patterns specific to this project's stack, note them in `.issue/discoveries.md`
+- The pipeline's learning stage will extract patterns after issue completion
+
 ## Critical Rules
 
 1. **Be Bold** - Generic is worse than unusual. Make intentional choices.

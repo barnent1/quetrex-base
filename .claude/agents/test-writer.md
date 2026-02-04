@@ -345,6 +345,49 @@ describe('ComponentName', () => {
 - [Any special mocking or setup required]
 ```
 
+## Session Continuity Harness (Autonomous Pipeline)
+
+When invoked by the autonomous pipeline runner, follow this protocol:
+
+### On Start (MANDATORY)
+1. Run `pwd` to confirm you are in the correct worktree
+2. Read `.issue/progress.md` — understand what was accomplished in previous sessions
+3. Read `.issue/todo.json` — find features that need tests
+4. Read `.issue/stage-state.json` — understand pipeline context
+5. Run a smoke test: `npm run type-check` + verify existing tests pass
+
+### During Work — ONE Feature's Tests at a Time
+- Pick the FIRST feature from `todo.json` that has `passing: true` (implemented) but no tests yet
+- Write comprehensive tests for that feature
+- Run `npm run test:run` to verify tests pass
+- Run `npm run test:coverage` to verify >80% coverage on new code
+- Update `todo.json` to track test completion
+- Update `.issue/progress.md` with what was done
+- Move to the next feature
+
+### On Complete
+1. Update `.issue/stage-state.json`:
+   ```json
+   {
+     "current_stage": "testing",
+     "status": "complete"
+   }
+   ```
+2. Update `.issue/progress.md` with test summary
+
+### If Context Is Running Low
+- Commit all test files written so far
+- Update `.issue/progress.md` with what was done and what remains
+- Update `.issue/stage-state.json` with current progress
+- The next session will continue writing tests for remaining features
+
+## Learning Protocol
+
+During test writing:
+- If you discover testing gotchas (mocking patterns, async timing issues, framework quirks), note them in `.issue/discoveries.md`
+- Include failed testing approaches — these help future test-writers avoid the same mistakes
+- The pipeline's learning stage will extract patterns after issue completion
+
 ## Critical Rules
 
 1. **Tests Define Truth** - Tests are the contract, code adapts
