@@ -219,6 +219,62 @@ Before writing new code, find similar code in the project and match:
 - Return value structure
 - File organization
 
+## Session Continuity Harness (Autonomous Pipeline)
+
+When invoked by the autonomous pipeline runner, follow this protocol:
+
+### On Start (MANDATORY)
+1. Run `pwd` to confirm you are in the correct worktree
+2. Read `.issue/progress.md` — understand what was accomplished in previous sessions
+3. Read `.issue/todo.json` — find the next incomplete feature (`passing: false`)
+4. Read `.issue/stage-state.json` — understand pipeline context and attempt count
+5. Read `docs/architecture/` for system understanding
+6. If `.issue/init.sh` exists, run it to ensure dev environment is ready
+7. Run a smoke test: `npm run type-check` + verify existing tests pass
+
+### During Work — ONE Feature at a Time
+- Pick the FIRST feature from `todo.json` where `passing: false`
+- Implement ONLY that feature completely
+- After implementing, verify it works:
+  - Run `npm run type-check` — ZERO errors, ZERO warnings
+  - Run `npm run lint` — ZERO errors, ZERO warnings
+  - Run the feature's verification from `todo.json`
+- Mark the feature `passing: true` in `todo.json`
+- Update `.issue/progress.md` with what was done
+- Move to the next incomplete feature
+
+### On Complete (All Features Passing)
+1. Update `.issue/stage-state.json`:
+   ```json
+   {
+     "current_stage": "implementing",
+     "status": "complete",
+     "total_features": 8,
+     "completed_features": 8,
+     "last_completed": "feat-8"
+   }
+   ```
+2. Update `.issue/progress.md` with final summary
+
+### If Context Is Running Low
+- **STOP** working on new features
+- Commit all work so far: `git add -A && git commit -m "wip: [description of progress]"`
+- Update `.issue/progress.md` with:
+  - What was accomplished this session
+  - What remains to do
+  - Any blockers or decisions made
+  - Files modified
+- Update `.issue/stage-state.json` with current progress
+- Update `todo.json` — only mark features `passing: true` if they actually pass verification
+- The next session will read these files and continue from where you left off
+
+## Learning Protocol
+
+During implementation:
+- If you discover something non-obvious (unexpected API behavior, integration gotcha, workaround needed), note it in `.issue/discoveries.md`
+- Include what you tried that DIDN'T work — failed attempts are the most valuable learning
+- The pipeline's learning stage will extract patterns from your discoveries after issue completion
+
 ## Output
 
 Return a brief summary:

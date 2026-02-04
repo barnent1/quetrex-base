@@ -1,59 +1,126 @@
 ---
 name: create-issue
 description: Create a git worktree and tmux window for new work
-argument-hint: [issue description]
+argument-hint: <issue-id> <description>
 allowed-tools: Bash, AskUserQuestion
 ---
 
 # Create Issue Workflow
 
-Creates a git worktree, opens a tmux window, and launches Claude in it.
+Creates a git worktree, ensures the project has an iTerm2 window via tmux,
+opens a tab for the issue, and launches Claude in it.
 
 ## Usage
 
 ```
-/create-issue Add user preference settings
-/create-issue Fix the login button not working
+/create-issue DQ-1 Fix the login button
+/create-issue AI-3 Add voice export feature
 ```
 
 ## Instructions
 
-### Step 1: Parse or Ask for Description
+### Step 1: Parse Arguments
 
-If `$ARGUMENTS` is provided, use it as the issue description.
+If `$ARGUMENTS` is provided, split into:
+- **Issue ID**: first token (e.g., `DQ-1`)
+- **Description**: remaining tokens (e.g., `Fix the login button`)
 
-If no arguments, ask: "What are you working on?"
+If no arguments, ask two questions:
+1. "What is the issue ID?" (e.g., `DQ-1`)
+2. "Describe the issue" (e.g., `Fix the login button`)
 
 ### Step 2: Generate Names
 
-From the description, generate:
-- **Issue Name**: 2-4 words, kebab-case (e.g., `add-user-preferences`)
-- **Branch Name**: `issue/<issue-name>` (e.g., `issue/add-user-preferences`)
+From issue ID and description, generate:
+- **Tab name**: `ISSUE_ID : DESCRIPTION` (e.g., `DQ-1 : Fix the login button`)
+- **Branch name**: `issue/ISSUE_ID-description-kebab-case` (e.g., `issue/DQ-1-fix-the-login-button`)
+- **Worktree dir**: `ISSUE_ID-description-kebab-case` (e.g., `DQ-1-fix-the-login-button`)
 
-### Step 3: Create Worktree
+The kebab-case portion is the description lowercased with spaces replaced by hyphens.
 
-```bash
-cd $(git rev-parse --show-toplevel)
-git worktree add ../worktrees/ISSUE_NAME -b issue/ISSUE_NAME
-```
-
-### Step 4: Open tmux Window and Launch Claude
+### Step 3: Detect Project
 
 ```bash
-SESSION=$(tmux display-message -p '#S')
-WORKTREE_PATH=$(cd "$(git rev-parse --show-toplevel)/../worktrees/ISSUE_NAME" && pwd)
-tmux new-window -t "$SESSION" -n "ISSUE_NAME" -c "$WORKTREE_PATH"
-tmux send-keys -t "$SESSION:ISSUE_NAME" 'claude' Enter
+PROJECT_ROOT=$(git rev-parse --show-toplevel)
+PROJECT_NAME=$(basename "$PROJECT_ROOT")
 ```
 
-### Step 5: Report Success
+### Step 4: Ensure Project Has an iTerm2 Window
+
+Check if the tmux session exists and has an active `-CC` client:
+
+```bash
+SESSION_EXISTS=$(tmux has-session -t "$PROJECT_NAME" 2>/dev/null && echo "yes" || echo "no")
+CLIENT_COUNT=$(tmux list-clients -t "$PROJECT_NAME" 2>/dev/null | wc -l | tr -d ' ')
+```
+
+Handle three cases:
+
+**Case A -- No session exists** (`SESSION_EXISTS` = "no"):
+
+```bash
+tmux new-session -d -s "$PROJECT_NAME" -c "$PROJECT_ROOT"
+osascript <<EOF
+tell application "iTerm2"
+  activate
+  set newWindow to (create window with default profile)
+  tell current session of newWindow
+    write text "tmux -CC attach -t $PROJECT_NAME"
+  end tell
+end tell
+EOF
+sleep 3
+```
+
+**Case B -- Session exists but no client** (`SESSION_EXISTS` = "yes", `CLIENT_COUNT` = "0"):
+
+```bash
+osascript <<EOF
+tell application "iTerm2"
+  activate
+  set newWindow to (create window with default profile)
+  tell current session of newWindow
+    write text "tmux -CC attach -t $PROJECT_NAME"
+  end tell
+end tell
+EOF
+sleep 3
+```
+
+**Case C -- Session exists and client is attached** (`SESSION_EXISTS` = "yes", `CLIENT_COUNT` > 0):
+
+No action needed. New windows will appear as tabs automatically.
+
+### Step 5: Create Worktree
+
+```bash
+cd "$PROJECT_ROOT"
+git worktree add "../worktrees/$WORKTREE_DIR" -b "$BRANCH_NAME"
+WORKTREE_PATH=$(cd "../worktrees/$WORKTREE_DIR" && pwd)
+```
+
+### Step 6: Create Tab and Launch Claude
+
+```bash
+TAB_NAME="$ISSUE_ID : $DESCRIPTION"
+WINDOW_ID=$(tmux new-window -t "$PROJECT_NAME" -n "$TAB_NAME" -c "$WORKTREE_PATH" -P -F '#{window_id}')
+tmux send-keys -t "$WINDOW_ID" 'claude' Enter
+```
+
+Uses `#{window_id}` (e.g., `@42`) to target the window, avoiding
+parsing issues with `:` in the tab name.
+
+### Step 7: Report
 
 ```
 ## Issue Started
 
-**Worktree:** ../worktrees/ISSUE_NAME
-**Branch:** issue/ISSUE_NAME
-**tmux window:** ISSUE_NAME
+**Issue:** ISSUE_ID : DESCRIPTION
+**Project:** PROJECT_NAME
+**Worktree:** ../worktrees/WORKTREE_DIR
+**Branch:** BRANCH_NAME
+**tmux session:** PROJECT_NAME
+**tmux tab:** ISSUE_ID : DESCRIPTION
 
-Branch `issue/ISSUE_NAME` created by Glen Barnhardt with Claude Code
+Branch `BRANCH_NAME` created by Glen Barnhardt with Claude Code
 ```

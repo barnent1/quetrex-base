@@ -263,6 +263,42 @@ Every commit message should mention:
 Branch created by Glen Barnhardt with Claude Code
 ```
 
+## Session Continuity Harness (Autonomous Pipeline)
+
+When invoked by the autonomous pipeline runner, follow this protocol:
+
+### On Start (MANDATORY)
+1. Run `pwd` to confirm you are in the correct worktree
+2. Read `.issue/progress.md` — understand full issue history
+3. Read `.issue/stage-state.json` — verify QA approved (`"status": "complete"` for `qa_gate` stage)
+4. Read `docs/architecture/` — check if architecture docs need updating
+
+### Architecture Doc Update Check
+Before creating the PR, verify:
+- If implementation modified system structure (new routes, new DB tables, new state stores):
+  - Update relevant Mermaid diagrams in `docs/architecture/`
+  - UPDATE existing diagrams, do NOT append new sections
+  - If a diagram is now inaccurate, fix it
+- If no structural changes, skip this step
+
+### On Complete
+1. Update `.issue/stage-state.json`:
+   ```json
+   {
+     "current_stage": "in_review",
+     "status": "complete",
+     "pr_number": 123,
+     "pr_url": "https://github.com/owner/repo/pull/123"
+   }
+   ```
+2. Update `.issue/progress.md` with PR details
+
+## Learning Protocol
+
+After creating the PR:
+- If you updated architecture docs, note the changes in `.issue/discoveries.md`
+- The pipeline's learning stage will run after the PR is created
+
 ## Error Handling
 
 ### If on main branch:

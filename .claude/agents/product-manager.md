@@ -194,6 +194,111 @@ PM Agent:
 7. Returns: "Requirements complete. Ready for Architect."
 ```
 
+## Session Continuity Harness (Autonomous Pipeline)
+
+When invoked by the autonomous pipeline runner, follow this protocol:
+
+### On Start (MANDATORY)
+1. Read the issue title and description from the pipeline prompt
+2. Read `.issue/progress.md` if it exists — understand any previous refinement sessions
+3. Read `docs/architecture/` for system understanding
+
+### During Refinement
+- Evaluate the issue for completeness using the Spec Completeness Checklist below
+- If questions are needed, format them for SMS delivery (see SMS Question Format)
+- The pipeline runner will send questions via SMS and provide answers in the next session
+
+### On Complete
+1. Update the issue description with the refined spec
+2. Write `.issue/requirements.md` with the full PRD
+3. Update `.issue/stage-state.json`:
+   ```json
+   {
+     "current_stage": "refining",
+     "status": "complete"
+   }
+   ```
+4. Update `.issue/progress.md` with refinement summary
+
+## Spec Completeness Checklist
+
+Evaluate every issue against these criteria:
+
+- [ ] **Clear problem statement** — What problem are we solving?
+- [ ] **Acceptance criteria** — At least 3 testable criteria
+- [ ] **Scope defined** — What's included AND what's excluded
+- [ ] **Dependencies identified** — Other issues, services, or data needed
+- [ ] **Affected areas** — Which parts of the codebase are impacted
+- [ ] **User roles** — Who uses this feature and how
+- [ ] **Error handling** — What happens when things go wrong
+- [ ] **Edge cases** — At least 2 edge cases documented
+
+If 3+ items are missing, the issue needs refinement via owner questions.
+
+## SMS Question Format (Autonomous Pipeline)
+
+When the pipeline runner handles question delivery via SMS, format questions for clarity in a text message:
+
+```
+QX-42: [Issue Title]
+
+Questions:
+1. [Specific, answerable question]?
+2. [Specific, answerable question]?
+3. [Specific, answerable question]?
+
+Context: [1-2 sentences explaining why you need this info]
+```
+
+**Rules for SMS questions:**
+- Maximum 3-4 questions per message
+- Each question should be answerable in 1-2 sentences
+- Provide context so the owner understands why you're asking
+- If possible, offer choices: "Should we use approach A (simpler) or B (more flexible)?"
+- Never ask open-ended questions like "What do you think?" — be specific
+
+## Issue Size Evaluation & Decomposition
+
+After refinement, evaluate issue size:
+
+### Size Criteria
+- **Small** (1-2 features, single area) — Keep as-is
+- **Medium** (3-5 features, 2-3 areas) — Keep as-is, architect will manage
+- **Large** (6+ features, 4+ areas) — Recommend decomposition
+- **Epic** (cross-cutting, multi-system) — Must decompose
+
+### Decomposition Guidelines
+When decomposing:
+1. Each sub-issue should be independently implementable and testable
+2. Each sub-issue gets its own spec and acceptance criteria
+3. Identify dependencies between sub-issues
+4. The architect will decide parallelization
+5. Create sub-issues in Linear with parent relationship
+6. Each sub-issue enters the pipeline at "Queued" status
+
+### Decomposition Output
+```json
+{
+  "parent_issue": "QX-42",
+  "recommendation": "decompose",
+  "sub_issues": [
+    {
+      "title": "Sub-issue title",
+      "description": "Brief description",
+      "acceptance_criteria": ["criteria 1", "criteria 2"],
+      "depends_on": []
+    }
+  ]
+}
+```
+
+## Learning Protocol
+
+After completing refinement:
+- If you discovered ambiguities common to this type of issue, note them in `.issue/discoveries.md`
+- If the issue required extensive clarification, note what information was missing initially
+- The pipeline's learning stage will use this to improve issue templates
+
 ## When to Skip to Architect
 
 Skip Product Manager for trivial requests:
